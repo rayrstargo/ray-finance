@@ -1,661 +1,926 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="我的收支" />
-  <link rel="manifest" href="manifest.json" />
-  <title>我的收支</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="小幣記帳"/>
+  <link rel="manifest" href="manifest.json"/>
+  <title>小幣記帳</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
-    :root {
-      --bg: #0f0f13;
-      --surface: #1a1a24;
-      --surface2: #22222f;
-      --border: #2e2e3e;
-      --accent: #6c63ff;
-      --accent2: #a78bfa;
-      --green: #34d399;
-      --red: #f87171;
-      --yellow: #fbbf24;
-      --text: #f0f0f5;
-      --text2: #9090a8;
-      --radius: 16px;
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    :root{
+      --bg:#07080f;
+      --s1:#0d1117;
+      --s2:#111827;
+      --s3:#1a2236;
+      --border:#1f2d45;
+      --accent:#818cf8;
+      --accent2:#c084fc;
+      --gold:#fbbf24;
+      --gold2:#fde68a;
+      --green:#34d399;
+      --red:#f87171;
+      --blue:#38bdf8;
+      --t1:#f1f5f9;
+      --t2:#94a3b8;
+      --t3:#475569;
+      --r:16px;
+    }
+    html,body{height:100%;overscroll-behavior:none}
+    body{
+      background:var(--bg);
+      color:var(--t1);
+      font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;
+      min-height:100vh;
+      padding-bottom:calc(72px + env(safe-area-inset-bottom));
+      overflow-x:hidden;
     }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      min-height: 100vh;
-      padding-bottom: env(safe-area-inset-bottom);
+    /* ── NOISE TEXTURE OVERLAY ── */
+    body::before{
+      content:'';position:fixed;inset:0;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events:none;z-index:0;opacity:.4;
     }
 
-    /* NAV */
-    .nav {
-      position: fixed;
-      bottom: 0;
-      left: 0; right: 0;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      display: flex;
-      padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
-      z-index: 100;
+    /* ── NAV ── */
+    .nav{
+      position:fixed;bottom:0;left:0;right:0;
+      background:rgba(13,17,23,.92);
+      backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+      border-top:1px solid var(--border);
+      display:flex;
+      padding:10px 0 calc(10px + env(safe-area-inset-bottom));
+      z-index:100;
     }
-    .nav-item {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 0;
-      cursor: pointer;
-      color: var(--text2);
-      font-size: 11px;
-      transition: color .2s;
-      border: none;
-      background: none;
+    .nav-btn{
+      flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;
+      padding:4px 0;cursor:pointer;
+      color:var(--t3);font-size:10px;font-weight:600;letter-spacing:.3px;
+      border:none;background:none;transition:color .2s;
     }
-    .nav-item.active { color: var(--accent2); }
-    .nav-item svg { width: 24px; height: 24px; }
+    .nav-btn.active{color:var(--accent)}
+    .nav-icon{
+      width:26px;height:26px;
+      display:flex;align-items:center;justify-content:center;
+      transition:transform .2s;
+    }
+    .nav-btn.active .nav-icon{transform:scale(1.1)}
+    .nav-dot{
+      width:4px;height:4px;border-radius:50%;
+      background:var(--accent);margin-top:2px;
+      opacity:0;transition:opacity .2s;
+    }
+    .nav-btn.active .nav-dot{opacity:1}
 
-    /* PAGES */
-    .page {
-      display: none;
-      padding: 0 16px 120px;
-      padding-top: calc(env(safe-area-inset-top) + 16px);
-    }
-    .page.active { display: block; }
+    /* ── PAGES ── */
+    .page{display:none;position:relative;z-index:1}
+    .page.active{display:block}
+    .page-wrap{padding:0 16px 24px;padding-top:calc(env(safe-area-inset-top) + 20px)}
 
-    /* HEADER */
-    .page-header {
-      font-size: 22px;
-      font-weight: 700;
-      margin-bottom: 20px;
-      padding-top: 8px;
+    /* ── HEADINGS ── */
+    .page-title{font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:20px;padding-top:6px}
+    .section-label{
+      font-size:11px;font-weight:700;letter-spacing:1.5px;
+      color:var(--t3);text-transform:uppercase;margin:22px 0 10px;
     }
 
-    /* CARD */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-      margin-bottom: 12px;
+    /* ── MASCOT ── */
+    .mascot-wrap{display:flex;align-items:center;gap:16px;margin-bottom:20px;padding:6px 0}
+    .mascot-svg{width:72px;height:80px;flex-shrink:0;animation:float 4s ease-in-out infinite}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    .mascot-bubble{
+      flex:1;
+      background:var(--s2);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px 14px;
+      position:relative;font-size:14px;line-height:1.5;color:var(--t2);
+    }
+    .mascot-bubble::before{
+      content:'';position:absolute;left:-8px;top:50%;transform:translateY(-50%);
+      border:8px solid transparent;border-right-color:var(--border);margin-left:-1px;
+    }
+    .mascot-bubble::after{
+      content:'';position:absolute;left:-6px;top:50%;transform:translateY(-50%);
+      border:7px solid transparent;border-right-color:var(--s2);
+    }
+    .mascot-hi{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:3px}
+
+    /* ── TOTAL CARD ── */
+    .total-card{
+      border-radius:22px;
+      background:linear-gradient(135deg,#1e1b4b 0%,#2d2777 40%,#4a1d9b 100%);
+      padding:28px 24px;margin-bottom:14px;
+      position:relative;overflow:hidden;
+    }
+    .total-card::before{
+      content:'';position:absolute;top:-40px;right:-40px;
+      width:180px;height:180px;border-radius:50%;
+      background:radial-gradient(circle,rgba(129,140,248,.25),transparent 70%);
+    }
+    .total-card::after{
+      content:'';position:absolute;bottom:-30px;left:-20px;
+      width:130px;height:130px;border-radius:50%;
+      background:radial-gradient(circle,rgba(192,132,252,.15),transparent 70%);
+    }
+    .total-card-label{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:10px;letter-spacing:.3px}
+    .total-card-amount{font-size:44px;font-weight:900;letter-spacing:-2px;line-height:1;position:relative;z-index:1}
+    .total-card-sub{
+      display:flex;gap:10px;margin-top:14px;
+      position:relative;z-index:1;
+    }
+    .total-chip{
+      background:rgba(255,255,255,.12);border-radius:20px;
+      padding:5px 12px;font-size:12px;font-weight:600;color:rgba(255,255,255,.85);
     }
 
-    /* TOTAL CARD */
-    .total-card {
-      background: linear-gradient(135deg, #3730a3, #6c63ff);
-      border: none;
-      text-align: center;
-      padding: 32px 20px;
+    /* ── SUMMARY GRID ── */
+    .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px}
+    .summary-cell{
+      background:var(--s2);border:1px solid var(--border);
+      border-radius:var(--r);padding:16px 14px;
     }
-    .total-label { font-size: 13px; color: rgba(255,255,255,0.7); margin-bottom: 8px; }
-    .total-amount { font-size: 42px; font-weight: 800; letter-spacing: -1px; }
-    .total-sub { font-size: 13px; color: rgba(255,255,255,0.7); margin-top: 6px; }
+    .summary-cell-label{font-size:11px;color:var(--t3);margin-bottom:8px;font-weight:600;letter-spacing:.5px}
+    .summary-cell-val{font-size:20px;font-weight:800;letter-spacing:-.5px}
+    .summary-cell-val.red{color:var(--red)}
+    .summary-cell-val.green{color:var(--green)}
+    .summary-cell-sub{font-size:11px;color:var(--t3);margin-top:4px}
 
-    /* SECTION TITLE */
-    .section-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text2);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin: 20px 0 10px;
+    /* ── CARDS ── */
+    .card{
+      background:var(--s2);border:1px solid var(--border);
+      border-radius:var(--r);padding:18px;margin-bottom:10px;
     }
 
-    /* LIST ITEM */
-    .list-item {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 14px 16px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      margin-bottom: 8px;
-      cursor: pointer;
-      transition: background .15s;
+    /* ── LIST ITEMS ── */
+    .item{
+      display:flex;align-items:center;gap:12px;
+      padding:14px 16px;
+      background:var(--s2);border:1px solid var(--border);
+      border-radius:var(--r);margin-bottom:8px;
+      cursor:pointer;transition:background .15s,border-color .15s;
+      -webkit-user-select:none;user-select:none;
     }
-    .list-item:active { background: var(--surface2); }
-    .list-icon {
-      width: 44px; height: 44px;
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px;
-      flex-shrink: 0;
+    .item:active{background:var(--s3);border-color:var(--accent)}
+    .item-icon{
+      width:44px;height:44px;border-radius:12px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:20px;flex-shrink:0;
     }
-    .list-info { flex: 1; min-width: 0; }
-    .list-name { font-size: 15px; font-weight: 600; }
-    .list-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
-    .list-amount { font-size: 16px; font-weight: 700; text-align: right; flex-shrink: 0; }
-    .list-amount.green { color: var(--green); }
-    .list-amount.red { color: var(--red); }
+    .item-icon.purple{background:rgba(129,140,248,.15)}
+    .item-icon.red{background:rgba(248,113,113,.12)}
+    .item-icon.green{background:rgba(52,211,153,.12)}
+    .item-icon.gold{background:rgba(251,191,36,.12)}
+    .item-icon.blue{background:rgba(56,189,248,.12)}
+    .item-body{flex:1;min-width:0}
+    .item-name{font-size:15px;font-weight:600}
+    .item-sub{font-size:12px;color:var(--t3);margin-top:3px}
+    .item-right{text-align:right;flex-shrink:0}
+    .item-amount{font-size:16px;font-weight:700}
+    .item-amount.green{color:var(--green)}
+    .item-amount.red{color:var(--red)}
+    .item-date{font-size:11px;color:var(--t3);margin-top:3px}
 
-    /* ADD BUTTON */
-    .add-btn {
-      width: 100%;
-      padding: 14px;
-      border-radius: var(--radius);
-      border: 2px dashed var(--border);
-      background: none;
-      color: var(--text2);
-      font-size: 15px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: border-color .2s, color .2s;
-      margin-top: 4px;
+    /* ── ADD BUTTON ── */
+    .add-btn{
+      width:100%;padding:15px;border-radius:var(--r);
+      border:2px dashed var(--border);background:none;
+      color:var(--t3);font-size:14px;font-weight:600;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+      transition:all .2s;margin-top:4px;
     }
-    .add-btn:active { border-color: var(--accent); color: var(--accent); }
+    .add-btn:active{border-color:var(--accent);color:var(--accent)}
 
-    /* MODAL */
-    .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 200;
-      display: none;
-      align-items: flex-end;
+    /* ── FAB ── */
+    .fab{
+      position:fixed;right:20px;bottom:calc(88px + env(safe-area-inset-bottom));
+      width:56px;height:56px;border-radius:18px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      border:none;color:white;font-size:26px;
+      display:none;align-items:center;justify-content:center;
+      box-shadow:0 8px 24px rgba(129,140,248,.4);
+      cursor:pointer;z-index:99;
+      transition:transform .15s;
     }
-    .modal-overlay.open { display: flex; }
-    .modal {
-      background: var(--surface);
-      border-radius: 24px 24px 0 0;
-      width: 100%;
-      padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-    .modal-title {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .modal-close {
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      background: var(--surface2);
-      border: none;
-      color: var(--text2);
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-    }
+    .fab.show{display:flex}
+    .fab:active{transform:scale(.92)}
 
-    /* FORM */
-    .form-group { margin-bottom: 16px; }
-    .form-label { font-size: 13px; color: var(--text2); margin-bottom: 6px; display: block; }
-    .form-input {
-      width: 100%;
-      padding: 13px 16px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      color: var(--text);
-      font-size: 16px;
-      outline: none;
-      transition: border-color .2s;
+    /* ── CHIP ── */
+    .chip{
+      display:inline-flex;align-items:center;
+      padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;
     }
-    .form-input:focus { border-color: var(--accent); }
-    .form-select {
-      width: 100%;
-      padding: 13px 16px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      color: var(--text);
-      font-size: 16px;
-      outline: none;
-      appearance: none;
+    .chip.purple{background:rgba(129,140,248,.18);color:var(--accent)}
+    .chip.yellow{background:rgba(251,191,36,.15);color:var(--gold)}
+    .chip.green{background:rgba(52,211,153,.15);color:var(--green)}
+    .chip.blue{background:rgba(56,189,248,.15);color:var(--blue)}
+
+    /* ── MODAL ── */
+    .overlay{
+      position:fixed;inset:0;background:rgba(0,0,0,.75);
+      z-index:200;display:none;align-items:flex-end;
+      backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    }
+    .overlay.open{display:flex}
+    .modal{
+      background:var(--s1);border-radius:26px 26px 0 0;
+      width:100%;padding:28px 20px calc(28px + env(safe-area-inset-bottom));
+      max-height:92vh;overflow-y:auto;
+      border-top:1px solid var(--border);
+    }
+    .modal-handle{
+      width:36px;height:4px;border-radius:2px;
+      background:var(--border);margin:0 auto 20px;
+    }
+    .modal-title{
+      font-size:20px;font-weight:800;margin-bottom:22px;
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .modal-close{
+      width:30px;height:30px;border-radius:50%;
+      background:var(--s3);border:none;color:var(--t2);
+      cursor:pointer;font-size:16px;
+      display:flex;align-items:center;justify-content:center;
     }
 
-    /* EMOJI PICKER */
-    .emoji-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 6px;
-      margin-top: 8px;
+    /* ── FORM ── */
+    .fg{margin-bottom:18px}
+    .fl{font-size:12px;font-weight:700;color:var(--t3);letter-spacing:.5px;margin-bottom:8px;display:block;text-transform:uppercase}
+    .fi,.fsel{
+      width:100%;padding:14px 16px;
+      background:var(--s3);border:1.5px solid var(--border);
+      border-radius:14px;color:var(--t1);font-size:16px;outline:none;
+      transition:border-color .2s;appearance:none;
     }
-    .emoji-btn {
-      aspect-ratio: 1;
-      border-radius: 10px;
-      background: var(--surface2);
-      border: 2px solid transparent;
-      font-size: 22px;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: border-color .15s;
-    }
-    .emoji-btn.selected { border-color: var(--accent); }
+    .fi:focus,.fsel:focus{border-color:var(--accent)}
+    .fi::placeholder{color:var(--t3)}
 
-    /* PRIMARY BUTTON */
-    .btn-primary {
-      width: 100%;
-      padding: 15px;
-      border-radius: var(--radius);
-      background: var(--accent);
-      border: none;
-      color: white;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity .2s;
-      margin-top: 8px;
+    /* ── EMOJI GRID ── */
+    .emoji-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:6px}
+    .emoji-btn{
+      aspect-ratio:1;border-radius:10px;background:var(--s3);
+      border:2px solid transparent;font-size:21px;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      transition:border-color .15s,transform .1s;
     }
-    .btn-primary:active { opacity: 0.8; }
+    .emoji-btn.sel{border-color:var(--accent)}
+    .emoji-btn:active{transform:scale(.9)}
 
-    .btn-danger {
-      width: 100%;
-      padding: 13px;
-      border-radius: var(--radius);
-      background: transparent;
-      border: 1px solid var(--red);
-      color: var(--red);
-      font-size: 15px;
-      cursor: pointer;
-      margin-top: 10px;
+    /* ── CATEGORY GRID ── */
+    .cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px}
+    .cat-btn{
+      border-radius:12px;background:var(--s3);
+      border:2px solid transparent;
+      padding:10px 4px;font-size:10px;font-weight:700;
+      color:var(--t2);cursor:pointer;
+      display:flex;flex-direction:column;align-items:center;gap:4px;
+      transition:all .15s;
+    }
+    .cat-btn span{font-size:22px}
+    .cat-btn.sel{border-color:var(--accent);color:var(--accent);background:rgba(129,140,248,.1)}
+
+    /* ── BUTTONS ── */
+    .btn-primary{
+      width:100%;padding:16px;border-radius:var(--r);
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      border:none;color:white;font-size:16px;font-weight:800;
+      cursor:pointer;margin-top:10px;letter-spacing:.3px;
+      box-shadow:0 4px 20px rgba(129,140,248,.3);
+      transition:opacity .15s,transform .15s;
+    }
+    .btn-primary:active{opacity:.85;transform:scale(.98)}
+    .btn-danger{
+      width:100%;padding:14px;border-radius:var(--r);
+      background:transparent;border:1.5px solid rgba(248,113,113,.4);
+      color:var(--red);font-size:15px;font-weight:700;
+      cursor:pointer;margin-top:10px;
     }
 
-    /* SUMMARY CARD */
-    .summary-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
+    /* ── MONTH FILTER ── */
+    .month-nav{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:12px 16px;background:var(--s2);
+      border:1px solid var(--border);border-radius:var(--r);
+      margin-bottom:14px;
     }
-    .summary-row:last-child { border-bottom: none; }
-    .summary-key { font-size: 14px; color: var(--text2); }
-    .summary-val { font-size: 15px; font-weight: 700; }
+    .month-arrow{
+      width:34px;height:34px;border-radius:10px;
+      background:var(--s3);border:none;color:var(--t2);
+      font-size:18px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .month-label{font-size:16px;font-weight:800;color:var(--t1)}
 
-    /* CHIP */
-    .chip {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
+    /* ── DAILY GROUP ── */
+    .day-group{margin-bottom:16px}
+    .day-label{
+      font-size:12px;font-weight:700;color:var(--t3);
+      letter-spacing:.5px;margin-bottom:8px;
+      display:flex;align-items:center;justify-content:space-between;
     }
-    .chip-purple { background: rgba(108,99,255,0.2); color: var(--accent2); }
-    .chip-green  { background: rgba(52,211,153,0.15); color: var(--green); }
-    .chip-yellow { background: rgba(251,191,36,0.15); color: var(--yellow); }
+    .day-total{font-size:12px;color:var(--red);font-weight:700}
+
+    /* ── EMPTY STATE ── */
+    .empty{
+      text-align:center;padding:48px 20px;
+      color:var(--t3);font-size:14px;line-height:1.8;
+    }
+    .empty-emoji{font-size:40px;margin-bottom:12px;display:block}
+
+    /* ── DIVIDER ── */
+    .divider{height:1px;background:var(--border);margin:14px 0}
   </style>
 </head>
 <body>
 
-<!-- PAGES -->
-<div id="page-home" class="page active">
-  <div style="padding-top:16px"></div>
+<!-- ═══ PAGE: HOME ═══ -->
+<div id="p-home" class="page active">
+  <div class="page-wrap">
 
-  <!-- Total -->
-  <div class="card total-card">
-    <div class="total-label">我總共有</div>
-    <div class="total-amount" id="total-balance">NT$0</div>
-    <div class="total-sub" id="total-sub">跨 <span id="account-count">0</span> 個帳戶</div>
+    <!-- Mascot -->
+    <div class="mascot-wrap">
+      <svg class="mascot-svg" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="bg" cx="38%" cy="32%">
+            <stop offset="0%" stop-color="#fde68a"/>
+            <stop offset="55%" stop-color="#fbbf24"/>
+            <stop offset="100%" stop-color="#d97706"/>
+          </radialGradient>
+          <radialGradient id="cheek">
+            <stop offset="0%" stop-color="#fb923c" stop-opacity=".5"/>
+            <stop offset="100%" stop-color="#fb923c" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <!-- shadow -->
+        <ellipse cx="60" cy="133" rx="28" ry="5" fill="rgba(0,0,0,.25)"/>
+        <!-- arm left -->
+        <path d="M18 72 Q26 58 34 65" stroke="url(#bg)" stroke-width="13" fill="none" stroke-linecap="round"/>
+        <circle cx="16" cy="74" r="7" fill="url(#bg)"/>
+        <!-- arm right -->
+        <path d="M102 72 Q94 58 86 65" stroke="url(#bg)" stroke-width="13" fill="none" stroke-linecap="round"/>
+        <circle cx="104" cy="74" r="7" fill="url(#bg)"/>
+        <!-- body -->
+        <circle cx="60" cy="72" r="50" fill="url(#bg)"/>
+        <!-- coin slot -->
+        <rect x="50" y="22" width="20" height="6" rx="3" fill="rgba(0,0,0,.22)"/>
+        <!-- shine -->
+        <ellipse cx="43" cy="47" rx="14" ry="9" fill="rgba(255,255,255,.28)" transform="rotate(-35 43 47)"/>
+        <!-- eyes white -->
+        <circle cx="43" cy="65" r="11" fill="white"/>
+        <circle cx="77" cy="65" r="11" fill="white"/>
+        <!-- eyes pupil -->
+        <circle cx="46" cy="67" r="7" fill="#1a0a3e"/>
+        <circle cx="80" cy="67" r="7" fill="#1a0a3e"/>
+        <!-- eyes sparkle -->
+        <circle cx="50" cy="63" r="3" fill="white"/>
+        <circle cx="84" cy="63" r="3" fill="white"/>
+        <!-- cheeks -->
+        <circle cx="31" cy="76" r="11" fill="url(#cheek)"/>
+        <circle cx="89" cy="76" r="11" fill="url(#cheek)"/>
+        <!-- smile -->
+        <path d="M42 84 Q60 100 78 84" stroke="#92400e" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <!-- $ -->
+        <text x="60" y="61" text-anchor="middle" fill="rgba(255,255,255,.35)" font-size="11" font-weight="900" font-family="Arial">$</text>
+      </svg>
+      <div class="mascot-bubble">
+        <div class="mascot-hi">嗨！我是小幣 🌟</div>
+        <div id="mascot-msg">今天的錢都好好的嗎？</div>
+      </div>
+    </div>
+
+    <!-- Total Balance -->
+    <div class="total-card">
+      <div class="total-card-label">我總共有</div>
+      <div class="total-card-amount" id="h-total">NT$0</div>
+      <div class="total-card-sub">
+        <div class="total-chip" id="h-acc-chip">0 個帳戶</div>
+        <div class="total-chip" id="h-cash-chip" style="display:none">含現金</div>
+      </div>
+    </div>
+
+    <!-- Monthly Summary -->
+    <div class="section-label">本月概況</div>
+    <div class="summary-grid">
+      <div class="summary-cell">
+        <div class="summary-cell-label">固定支出</div>
+        <div class="summary-cell-val red" id="h-fixed">NT$0</div>
+        <div class="summary-cell-sub">每月</div>
+      </div>
+      <div class="summary-cell">
+        <div class="summary-cell-label">日常消費</div>
+        <div class="summary-cell-val red" id="h-daily">NT$0</div>
+        <div class="summary-cell-sub" id="h-daily-sub">本月</div>
+      </div>
+    </div>
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
+      <span style="font-size:14px;color:var(--t2);font-weight:600">本月總支出</span>
+      <span style="font-size:20px;font-weight:900;color:var(--red)" id="h-total-out">NT$0</span>
+    </div>
+
+    <!-- Account Overview -->
+    <div class="section-label">帳戶概覽</div>
+    <div id="h-accounts"></div>
+
   </div>
+</div>
 
-  <!-- Monthly expense summary -->
-  <div class="section-title">每月固定支出</div>
-  <div class="card" id="expense-summary-card">
-    <div class="summary-row">
-      <span class="summary-key">月費合計</span>
-      <span class="summary-val red" id="monthly-total">NT$0</span>
-    </div>
-    <div class="summary-row">
-      <span class="summary-key">年費合計（換算月）</span>
-      <span class="summary-val red" id="yearly-monthly">NT$0</span>
-    </div>
-    <div class="summary-row">
-      <span class="summary-key">每月總固定支出</span>
-      <span class="summary-val red" id="total-fixed">NT$0</span>
-    </div>
+<!-- ═══ PAGE: ACCOUNTS ═══ -->
+<div id="p-accounts" class="page">
+  <div class="page-wrap">
+    <div class="page-title">帳戶</div>
+    <div id="acc-list"></div>
+    <button class="add-btn" onclick="openAddAcc()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      新增帳戶 / 現金
+    </button>
   </div>
-
-  <!-- Accounts preview -->
-  <div class="section-title">帳戶概覽</div>
-  <div id="home-accounts"></div>
 </div>
 
-<div id="page-accounts" class="page">
-  <div class="page-header">帳戶</div>
-  <div id="accounts-list"></div>
-  <button class="add-btn" onclick="openAddAccount()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-    新增帳戶
-  </button>
+<!-- ═══ PAGE: TRANSACTIONS ═══ -->
+<div id="p-tx" class="page">
+  <div class="page-wrap">
+    <div class="page-title">日常記帳</div>
+    <div class="month-nav">
+      <button class="month-arrow" onclick="changeMonth(-1)">‹</button>
+      <div class="month-label" id="tx-month-label"></div>
+      <button class="month-arrow" onclick="changeMonth(1)">›</button>
+    </div>
+    <div id="tx-list"></div>
+  </div>
 </div>
 
-<div id="page-expenses" class="page">
-  <div class="page-header">固定支出</div>
-  <div id="expenses-list"></div>
-  <button class="add-btn" onclick="openAddExpense()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-    新增支出項目
-  </button>
+<!-- ═══ PAGE: FIXED ═══ -->
+<div id="p-fixed" class="page">
+  <div class="page-wrap">
+    <div class="page-title">固定支出</div>
+    <!-- Summary -->
+    <div class="card" style="padding:16px 18px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:13px;color:var(--t3)">月費合計</span>
+        <span style="font-weight:700;color:var(--red)" id="f-monthly">NT$0</span>
+      </div>
+      <div class="divider" style="margin:10px 0"></div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-size:13px;color:var(--t3)">年費（換算月）</span>
+        <span style="font-weight:700;color:var(--red)" id="f-yearly">NT$0</span>
+      </div>
+    </div>
+    <div id="fixed-list"></div>
+    <button class="add-btn" onclick="openAddFixed()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      新增固定支出
+    </button>
+  </div>
 </div>
 
-<!-- BOTTOM NAV -->
+<!-- ═══ FAB ═══ -->
+<button class="fab" id="fab" onclick="openAddTx()">+</button>
+
+<!-- ═══ NAV ═══ -->
 <nav class="nav">
-  <button class="nav-item active" onclick="showPage('home',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+  <button class="nav-btn active" onclick="gotoPage('home',this)">
+    <div class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </div>
     首頁
+    <div class="nav-dot"></div>
   </button>
-  <button class="nav-item" onclick="showPage('accounts',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+  <button class="nav-btn" onclick="gotoPage('accounts',this)">
+    <div class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+    </div>
     帳戶
+    <div class="nav-dot"></div>
   </button>
-  <button class="nav-item" onclick="showPage('expenses',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-    支出
+  <button class="nav-btn" onclick="gotoPage('tx',this)">
+    <div class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    </div>
+    記帳
+    <div class="nav-dot"></div>
+  </button>
+  <button class="nav-btn" onclick="gotoPage('fixed',this)">
+    <div class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    固定
+    <div class="nav-dot"></div>
   </button>
 </nav>
 
-<!-- MODAL: Account -->
-<div class="modal-overlay" id="modal-account" onclick="closeModalIfOverlay(event,'modal-account')">
+<!-- ═══ MODAL: Account ═══ -->
+<div class="overlay" id="m-acc" onclick="closeIfOvr(event,'m-acc')">
   <div class="modal">
+    <div class="modal-handle"></div>
     <div class="modal-title">
-      <span id="modal-account-title">新增帳戶</span>
-      <button class="modal-close" onclick="closeModal('modal-account')">×</button>
+      <span id="m-acc-title">新增帳戶</span>
+      <button class="modal-close" onclick="closeM('m-acc')">×</button>
     </div>
-    <div class="form-group">
-      <label class="form-label">帳戶名稱</label>
-      <input class="form-input" id="acc-name" placeholder="例：玉山銀行、街口支付" />
+    <div class="fg">
+      <label class="fl">帳戶名稱</label>
+      <input class="fi" id="a-name" placeholder="玉山銀行、現金、街口支付…"/>
     </div>
-    <div class="form-group">
-      <label class="form-label">目前餘額（NT$）</label>
-      <input class="form-input" id="acc-balance" type="number" placeholder="0" inputmode="decimal" />
+    <div class="fg">
+      <label class="fl">目前餘額（NT$）</label>
+      <input class="fi" id="a-bal" type="number" inputmode="decimal" placeholder="0"/>
     </div>
-    <div class="form-group">
-      <label class="form-label">選個圖示</label>
-      <div class="emoji-grid" id="acc-emoji-grid"></div>
+    <div class="fg">
+      <label class="fl">選個圖示</label>
+      <div class="emoji-grid" id="a-emojis"></div>
     </div>
-    <button class="btn-primary" onclick="saveAccount()">儲存</button>
-    <button class="btn-danger" id="delete-acc-btn" onclick="deleteAccount()" style="display:none">刪除這個帳戶</button>
+    <button class="btn-primary" onclick="saveAcc()">儲存</button>
+    <button class="btn-danger" id="a-del" style="display:none" onclick="delAcc()">刪除這個帳戶</button>
   </div>
 </div>
 
-<!-- MODAL: Expense -->
-<div class="modal-overlay" id="modal-expense" onclick="closeModalIfOverlay(event,'modal-expense')">
+<!-- ═══ MODAL: Transaction ═══ -->
+<div class="overlay" id="m-tx" onclick="closeIfOvr(event,'m-tx')">
   <div class="modal">
+    <div class="modal-handle"></div>
     <div class="modal-title">
-      <span id="modal-expense-title">新增支出項目</span>
-      <button class="modal-close" onclick="closeModal('modal-expense')">×</button>
+      <span id="m-tx-title">新增消費</span>
+      <button class="modal-close" onclick="closeM('m-tx')">×</button>
     </div>
-    <div class="form-group">
-      <label class="form-label">項目名稱</label>
-      <input class="form-input" id="exp-name" placeholder="例：Netflix、勞健保" />
+    <div class="fg">
+      <label class="fl">類別</label>
+      <div class="cat-grid" id="tx-cats"></div>
     </div>
-    <div class="form-group">
-      <label class="form-label">金額（NT$）</label>
-      <input class="form-input" id="exp-amount" type="number" placeholder="0" inputmode="decimal" />
+    <div class="fg">
+      <label class="fl">金額（NT$）</label>
+      <input class="fi" id="tx-amt" type="number" inputmode="decimal" placeholder="0"/>
     </div>
-    <div class="form-group">
-      <label class="form-label">扣費週期</label>
-      <select class="form-select" id="exp-cycle">
+    <div class="fg">
+      <label class="fl">備註（選填）</label>
+      <input class="fi" id="tx-note" placeholder="吃了什麼、買了什麼…"/>
+    </div>
+    <div class="fg">
+      <label class="fl">日期</label>
+      <input class="fi" id="tx-date" type="date"/>
+    </div>
+    <button class="btn-primary" onclick="saveTx()">記錄</button>
+    <button class="btn-danger" id="tx-del" style="display:none" onclick="delTx()">刪除這筆</button>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Fixed Expense ═══ -->
+<div class="overlay" id="m-fixed" onclick="closeIfOvr(event,'m-fixed')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">
+      <span id="m-fixed-title">新增固定支出</span>
+      <button class="modal-close" onclick="closeM('m-fixed')">×</button>
+    </div>
+    <div class="fg">
+      <label class="fl">項目名稱</label>
+      <input class="fi" id="f-name" placeholder="Netflix、勞健保、手機費…"/>
+    </div>
+    <div class="fg">
+      <label class="fl">金額（NT$）</label>
+      <input class="fi" id="f-amt" type="number" inputmode="decimal" placeholder="0"/>
+    </div>
+    <div class="fg">
+      <label class="fl">扣費週期</label>
+      <select class="fsel" id="f-cycle">
         <option value="monthly">每月</option>
         <option value="yearly">每年</option>
         <option value="quarterly">每季</option>
       </select>
     </div>
-    <div class="form-group">
-      <label class="form-label">選個圖示</label>
-      <div class="emoji-grid" id="exp-emoji-grid"></div>
+    <div class="fg">
+      <label class="fl">選個圖示</label>
+      <div class="emoji-grid" id="f-emojis"></div>
     </div>
-    <button class="btn-primary" onclick="saveExpense()">儲存</button>
-    <button class="btn-danger" id="delete-exp-btn" onclick="deleteExpense()" style="display:none">刪除這個項目</button>
+    <button class="btn-primary" onclick="saveFixed()">儲存</button>
+    <button class="btn-danger" id="f-del" style="display:none" onclick="delFixed()">刪除這個項目</button>
   </div>
 </div>
 
 <script>
-const ACCOUNT_EMOJIS = ['🏦','💳','💰','💵','🪙','📱','🏧','💎','🏪','🎯','🌸','⚡','🔐','🎪','🌊','🔥'];
-const EXPENSE_EMOJIS = ['📱','🛡️','🎬','🎵','☁️','🏠','🚗','🍔','✈️','📚','💊','🎮','🛒','💡','🌐','⚽','🎓','👗','🐾','🏋️'];
-
-let editAccountId = null;
-let editExpenseId = null;
-let selectedAccEmoji = ACCOUNT_EMOJIS[0];
-let selectedExpEmoji = EXPENSE_EMOJIS[0];
-
-// ---- STORAGE ----
-function getData() {
-  return {
-    accounts: JSON.parse(localStorage.getItem('fin_accounts') || '[]'),
-    expenses: JSON.parse(localStorage.getItem('fin_expenses') || '[]'),
-  };
-}
-function saveData(key, val) {
-  localStorage.setItem('fin_' + key, JSON.stringify(val));
+// ════ DATA ════
+const DB = {
+  get(k){ return JSON.parse(localStorage.getItem('sb_'+k)||'[]') },
+  set(k,v){ localStorage.setItem('sb_'+k,JSON.stringify(v)) }
 }
 
-// ---- FORMAT ----
-function fmt(n) {
-  return 'NT$' + Math.round(n).toLocaleString('zh-TW');
-}
-function cycleLabel(c) {
-  return { monthly:'每月', yearly:'每年', quarterly:'每季' }[c] || c;
-}
-function toMonthly(amount, cycle) {
-  if (cycle === 'monthly') return amount;
-  if (cycle === 'yearly') return amount / 12;
-  if (cycle === 'quarterly') return amount / 3;
-  return amount;
+// ════ CONSTANTS ════
+const ACC_EMOJIS  = ['🏦','💳','💰','💵','🪙','📱','🏧','🔑','🌸','⚡','💎','🎯','🏪','🌊','🔥','✨']
+const EXP_EMOJIS  = ['📱','🛡️','🎬','🎵','☁️','🏠','🚗','🍔','✈️','📚','💊','🎮','🛒','💡','🌐','🎓','👗','🐾','🏋️','🎁']
+const CATS = [
+  {id:'food',  emoji:'🍔',label:'餐飲'},
+  {id:'transport',emoji:'🚗',label:'交通'},
+  {id:'shop',  emoji:'🛒',label:'購物'},
+  {id:'fun',   emoji:'🎮',label:'娛樂'},
+  {id:'health',emoji:'💊',label:'醫療'},
+  {id:'beauty',emoji:'💄',label:'美妝'},
+  {id:'daily', emoji:'🏠',label:'日用'},
+  {id:'edu',   emoji:'📚',label:'學習'},
+  {id:'cafe',  emoji:'☕',label:'咖啡'},
+  {id:'clothes',emoji:'👗',label:'服飾'},
+  {id:'gift',  emoji:'🎁',label:'禮物'},
+  {id:'other', emoji:'💸',label:'其他'},
+]
+const CAT_MAP = Object.fromEntries(CATS.map(c=>[c.id,c]))
+
+const MASCOT_MSGS = [
+  '今天的錢都好好的嗎？',
+  '記得記帳，錢才不會不見！',
+  '小幣替你守住每一分錢 💪',
+  '省一點，存多一點！',
+  '今天也要好好賺錢哦～',
+]
+
+// ════ STATE ════
+let editAccId = null, editFixedId = null, editTxId = null
+let selAccEmoji = ACC_EMOJIS[0], selFixedEmoji = EXP_EMOJIS[0], selCat = 'food'
+let txYear, txMonth
+
+function initMonth(){
+  const now = new Date()
+  txYear = now.getFullYear(); txMonth = now.getMonth()
 }
 
-// ---- RENDER ----
-function renderAll() {
-  renderHome();
-  renderAccounts();
-  renderExpenses();
+// ════ FORMAT ════
+const fmt = n => 'NT$' + Math.round(n).toLocaleString('zh-TW')
+const cycleLabel = c => ({monthly:'每月',yearly:'每年',quarterly:'每季'}[c]||c)
+const toMonthly = (amt,c) => c==='monthly'?amt : c==='yearly'?amt/12 : c==='quarterly'?amt/3 : amt
+const padZ = n => String(n).padStart(2,'0')
+const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${padZ(d.getMonth()+1)}-${padZ(d.getDate())}` }
+const fmtDate = s => { const [y,m,d]=s.split('-'); return `${m}/${d}` }
+const fmtDateFull = s => { const [y,m,d]=s.split('-'); return `${y} 年 ${m} 月 ${d} 日` }
+
+// ════ NAV ════
+function gotoPage(name, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'))
+  document.getElementById('p-'+name).classList.add('active')
+  btn.classList.add('active')
+  document.getElementById('fab').className = name==='tx' ? 'fab show' : 'fab'
+  if(name==='tx') renderTx()
+  if(name==='fixed') renderFixed()
+  if(name==='accounts') renderAccounts()
+  if(name==='home') renderHome()
 }
 
-function renderHome() {
-  const { accounts, expenses } = getData();
-  const total = accounts.reduce((s, a) => s + (parseFloat(a.balance) || 0), 0);
-  document.getElementById('total-balance').textContent = fmt(total);
-  document.getElementById('account-count').textContent = accounts.length;
+// ════ RENDER HOME ════
+function renderHome(){
+  const accs = DB.get('accounts')
+  const fixed = DB.get('fixed')
+  const txs = DB.get('txs')
+  const now = new Date()
+  const ym = `${now.getFullYear()}-${padZ(now.getMonth()+1)}`
 
-  const monthly = expenses.filter(e => e.cycle === 'monthly').reduce((s,e) => s + parseFloat(e.amount||0), 0);
-  const yearlyMonthly = expenses.filter(e => e.cycle !== 'monthly').reduce((s,e) => s + toMonthly(parseFloat(e.amount||0), e.cycle), 0);
-  document.getElementById('monthly-total').textContent = fmt(monthly);
-  document.getElementById('yearly-monthly').textContent = fmt(yearlyMonthly);
-  document.getElementById('total-fixed').textContent = fmt(monthly + yearlyMonthly);
+  const total = accs.reduce((s,a)=>s+(parseFloat(a.bal)||0),0)
+  const hasCash = accs.some(a=>a.name.includes('現金'))
+  document.getElementById('h-total').textContent = fmt(total)
+  document.getElementById('h-acc-chip').textContent = `${accs.length} 個帳戶`
+  document.getElementById('h-cash-chip').style.display = hasCash ? 'block' : 'none'
 
-  const homeAccounts = document.getElementById('home-accounts');
-  if (accounts.length === 0) {
-    homeAccounts.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px 0;font-size:14px">還沒有帳戶，去「帳戶」頁面新增吧</div>';
+  const fixedMonthly = fixed.reduce((s,f)=>s+toMonthly(parseFloat(f.amt)||0,f.cycle),0)
+  const dailyThis = txs.filter(t=>t.date.startsWith(ym)).reduce((s,t)=>s+(parseFloat(t.amt)||0),0)
+  document.getElementById('h-fixed').textContent = fmt(fixedMonthly)
+  document.getElementById('h-daily').textContent = fmt(dailyThis)
+  document.getElementById('h-total-out').textContent = fmt(fixedMonthly+dailyThis)
+
+  const el = document.getElementById('h-accounts')
+  if(!accs.length){
+    el.innerHTML='<div class="empty"><span class="empty-emoji">🏦</span>還沒有帳戶<br>去帳戶頁面新增吧</div>'
   } else {
-    homeAccounts.innerHTML = accounts.map(a => `
-      <div class="list-item">
-        <div class="list-icon" style="background:rgba(108,99,255,0.15)">${a.emoji}</div>
-        <div class="list-info">
-          <div class="list-name">${a.name}</div>
-        </div>
-        <div class="list-amount green">${fmt(a.balance)}</div>
+    el.innerHTML = accs.map(a=>`
+      <div class="item">
+        <div class="item-icon purple">${a.emoji}</div>
+        <div class="item-body"><div class="item-name">${a.name}</div></div>
+        <div class="item-right"><div class="item-amount green">${fmt(a.bal)}</div></div>
+      </div>`).join('')
+  }
+  document.getElementById('mascot-msg').textContent = MASCOT_MSGS[Math.floor(Math.random()*MASCOT_MSGS.length)]
+}
+
+// ════ RENDER ACCOUNTS ════
+function renderAccounts(){
+  const accs = DB.get('accounts')
+  const el = document.getElementById('acc-list')
+  if(!accs.length){
+    el.innerHTML='<div class="empty"><span class="empty-emoji">💳</span>新增你的第一個帳戶或現金</div>'
+    return
+  }
+  el.innerHTML = accs.map(a=>`
+    <div class="item" onclick="openEditAcc('${a.id}')">
+      <div class="item-icon purple">${a.emoji}</div>
+      <div class="item-body"><div class="item-name">${a.name}</div><div class="item-sub">點擊編輯</div></div>
+      <div class="item-right"><div class="item-amount green">${fmt(a.bal)}</div></div>
+    </div>`).join('')
+}
+
+// ════ RENDER TRANSACTIONS ════
+function renderTx(){
+  const ym = `${txYear}-${padZ(txMonth+1)}`
+  document.getElementById('tx-month-label').textContent = `${txYear} 年 ${txMonth+1} 月`
+  const all = DB.get('txs').filter(t=>t.date.startsWith(ym))
+  const el = document.getElementById('tx-list')
+  if(!all.length){
+    el.innerHTML='<div class="empty"><span class="empty-emoji">📝</span>這個月還沒有記帳<br>點右下角 + 新增</div>'
+    return
+  }
+  // group by date
+  const groups = {}
+  all.sort((a,b)=>b.date.localeCompare(a.date)).forEach(t=>{
+    if(!groups[t.date]) groups[t.date]=[]
+    groups[t.date].push(t)
+  })
+  el.innerHTML = Object.entries(groups).map(([date, items])=>{
+    const dayTotal = items.reduce((s,t)=>s+(parseFloat(t.amt)||0),0)
+    return `<div class="day-group">
+      <div class="day-label">
+        <span>${fmtDateFull(date)}</span>
+        <span class="day-total">-${fmt(dayTotal)}</span>
       </div>
-    `).join('');
-  }
+      ${items.map(t=>{
+        const cat = CAT_MAP[t.cat]||CAT_MAP.other
+        return `<div class="item" onclick="openEditTx('${t.id}')">
+          <div class="item-icon red">${cat.emoji}</div>
+          <div class="item-body">
+            <div class="item-name">${t.note||cat.label}</div>
+            <div class="item-sub"><span class="chip purple">${cat.label}</span></div>
+          </div>
+          <div class="item-right"><div class="item-amount red">-${fmt(t.amt)}</div></div>
+        </div>`}).join('')}
+    </div>`}).join('')
 }
 
-function renderAccounts() {
-  const { accounts } = getData();
-  const el = document.getElementById('accounts-list');
-  if (accounts.length === 0) {
-    el.innerHTML = '<div style="text-align:center;color:var(--text2);padding:30px 0;font-size:14px">點下方按鈕新增第一個帳戶</div>';
-    return;
+function changeMonth(d){
+  txMonth += d
+  if(txMonth<0){txMonth=11;txYear--}
+  if(txMonth>11){txMonth=0;txYear++}
+  renderTx()
+}
+
+// ════ RENDER FIXED ════
+function renderFixed(){
+  const fixed = DB.get('fixed')
+  const monthly = fixed.filter(f=>f.cycle==='monthly').reduce((s,f)=>s+(parseFloat(f.amt)||0),0)
+  const yearlyM = fixed.filter(f=>f.cycle!=='monthly').reduce((s,f)=>s+toMonthly(parseFloat(f.amt)||0,f.cycle),0)
+  document.getElementById('f-monthly').textContent = fmt(monthly)
+  document.getElementById('f-yearly').textContent = fmt(yearlyM)
+  const el = document.getElementById('fixed-list')
+  if(!fixed.length){
+    el.innerHTML='<div class="empty"><span class="empty-emoji">📋</span>新增保險費、訂閱費等固定支出</div>'
+    return
   }
-  el.innerHTML = accounts.map(a => `
-    <div class="list-item" onclick="openEditAccount('${a.id}')">
-      <div class="list-icon" style="background:rgba(108,99,255,0.15)">${a.emoji}</div>
-      <div class="list-info">
-        <div class="list-name">${a.name}</div>
-        <div class="list-sub">點擊編輯</div>
+  el.innerHTML = fixed.map(f=>{
+    const chipColor = f.cycle==='monthly'?'purple':f.cycle==='yearly'?'yellow':'green'
+    return `<div class="item" onclick="openEditFixed('${f.id}')">
+      <div class="item-icon red">${f.emoji}</div>
+      <div class="item-body">
+        <div class="item-name">${f.name}</div>
+        <div class="item-sub"><span class="chip ${chipColor}">${cycleLabel(f.cycle)}</span></div>
       </div>
-      <div class="list-amount green">${fmt(a.balance)}</div>
-    </div>
-  `).join('');
+      <div class="item-right"><div class="item-amount red">-${fmt(f.amt)}</div></div>
+    </div>`}).join('')
 }
 
-function renderExpenses() {
-  const { expenses } = getData();
-  const el = document.getElementById('expenses-list');
-  if (expenses.length === 0) {
-    el.innerHTML = '<div style="text-align:center;color:var(--text2);padding:30px 0;font-size:14px">點下方按鈕新增第一個支出項目</div>';
-    return;
-  }
-  el.innerHTML = expenses.map(e => `
-    <div class="list-item" onclick="openEditExpense('${e.id}')">
-      <div class="list-icon" style="background:rgba(248,113,113,0.1)">${e.emoji}</div>
-      <div class="list-info">
-        <div class="list-name">${e.name}</div>
-        <div class="list-sub"><span class="chip chip-${e.cycle==='monthly'?'purple':e.cycle==='yearly'?'yellow':'green'}">${cycleLabel(e.cycle)}</span></div>
-      </div>
-      <div class="list-amount red">-${fmt(e.amount)}</div>
-    </div>
-  `).join('');
+// ════ MODAL UTILS ════
+const openM = id => document.getElementById(id).classList.add('open')
+const closeM = id => document.getElementById(id).classList.remove('open')
+function closeIfOvr(e,id){ if(e.target===e.currentTarget) closeM(id) }
+
+function buildEmojiGrid(gridId, list, sel, setSel){
+  document.getElementById(gridId).innerHTML = list.map(e=>`
+    <button class="emoji-btn ${e===sel?'sel':''}" onclick="pickEmoji('${gridId}','${e}')">${e}</button>`).join('')
+}
+function pickEmoji(gridId, emoji){
+  document.querySelectorAll(`#${gridId} .emoji-btn`).forEach(b=>b.classList.remove('sel'))
+  event.currentTarget.classList.add('sel')
+  if(gridId==='a-emojis') selAccEmoji=emoji
+  else if(gridId==='f-emojis') selFixedEmoji=emoji
 }
 
-// ---- NAV ----
-function showPage(name, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  btn.classList.add('active');
+function buildCatGrid(){
+  document.getElementById('tx-cats').innerHTML = CATS.map(c=>`
+    <button class="cat-btn ${c.id===selCat?'sel':''}" onclick="pickCat('${c.id}')">
+      <span>${c.emoji}</span>${c.label}
+    </button>`).join('')
+}
+function pickCat(id){
+  selCat=id
+  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('sel'))
+  event.currentTarget.classList.add('sel')
 }
 
-// ---- MODAL ----
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function closeModalIfOverlay(e, id) { if (e.target === e.currentTarget) closeModal(id); }
-
-function buildEmojiGrid(gridId, emojis, selected, onSelect) {
-  const grid = document.getElementById(gridId);
-  grid.innerHTML = emojis.map(em => `
-    <button class="emoji-btn ${em === selected ? 'selected' : ''}" onclick="selectEmoji('${gridId}','${em}')">${em}</button>
-  `).join('');
+// ════ ACCOUNT CRUD ════
+function openAddAcc(){
+  editAccId=null; selAccEmoji=ACC_EMOJIS[0]
+  document.getElementById('m-acc-title').textContent='新增帳戶'
+  document.getElementById('a-name').value=''
+  document.getElementById('a-bal').value=''
+  document.getElementById('a-del').style.display='none'
+  buildEmojiGrid('a-emojis',ACC_EMOJIS,selAccEmoji)
+  openM('m-acc')
+}
+function openEditAcc(id){
+  const a = DB.get('accounts').find(x=>x.id===id); if(!a) return
+  editAccId=id; selAccEmoji=a.emoji
+  document.getElementById('m-acc-title').textContent='編輯帳戶'
+  document.getElementById('a-name').value=a.name
+  document.getElementById('a-bal').value=a.bal
+  document.getElementById('a-del').style.display='block'
+  buildEmojiGrid('a-emojis',ACC_EMOJIS,selAccEmoji)
+  openM('m-acc')
+}
+function saveAcc(){
+  const name=document.getElementById('a-name').value.trim()
+  const bal=parseFloat(document.getElementById('a-bal').value)||0
+  if(!name){document.getElementById('a-name').focus();return}
+  let list=DB.get('accounts')
+  if(editAccId) list=list.map(a=>a.id===editAccId?{...a,name,bal,emoji:selAccEmoji}:a)
+  else list.push({id:Date.now()+'',name,bal,emoji:selAccEmoji})
+  DB.set('accounts',list); closeM('m-acc'); renderAccounts(); renderHome()
+}
+function delAcc(){
+  if(!editAccId) return
+  DB.set('accounts',DB.get('accounts').filter(a=>a.id!==editAccId))
+  closeM('m-acc'); renderAccounts(); renderHome()
 }
 
-function selectEmoji(gridId, emoji) {
-  document.querySelectorAll(`#${gridId} .emoji-btn`).forEach(b => b.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
-  if (gridId === 'acc-emoji-grid') selectedAccEmoji = emoji;
-  else selectedExpEmoji = emoji;
+// ════ TRANSACTION CRUD ════
+function openAddTx(){
+  editTxId=null; selCat='food'
+  document.getElementById('m-tx-title').textContent='新增消費'
+  document.getElementById('tx-amt').value=''
+  document.getElementById('tx-note').value=''
+  document.getElementById('tx-date').value=todayStr()
+  document.getElementById('tx-del').style.display='none'
+  buildCatGrid(); openM('m-tx')
+}
+function openEditTx(id){
+  const t=DB.get('txs').find(x=>x.id===id); if(!t) return
+  editTxId=id; selCat=t.cat
+  document.getElementById('m-tx-title').textContent='編輯記帳'
+  document.getElementById('tx-amt').value=t.amt
+  document.getElementById('tx-note').value=t.note||''
+  document.getElementById('tx-date').value=t.date
+  document.getElementById('tx-del').style.display='block'
+  buildCatGrid(); openM('m-tx')
+}
+function saveTx(){
+  const amt=parseFloat(document.getElementById('tx-amt').value)||0
+  const note=document.getElementById('tx-note').value.trim()
+  const date=document.getElementById('tx-date').value||todayStr()
+  if(!amt){document.getElementById('tx-amt').focus();return}
+  let list=DB.get('txs')
+  if(editTxId) list=list.map(t=>t.id===editTxId?{...t,amt,note,cat:selCat,date}:t)
+  else list.push({id:Date.now()+'',amt,note,cat:selCat,date})
+  DB.set('txs',list); closeM('m-tx'); renderTx(); renderHome()
+}
+function delTx(){
+  if(!editTxId) return
+  DB.set('txs',DB.get('txs').filter(t=>t.id!==editTxId))
+  closeM('m-tx'); renderTx(); renderHome()
 }
 
-// ---- ACCOUNT CRUD ----
-function openAddAccount() {
-  editAccountId = null;
-  selectedAccEmoji = ACCOUNT_EMOJIS[0];
-  document.getElementById('modal-account-title').textContent = '新增帳戶';
-  document.getElementById('acc-name').value = '';
-  document.getElementById('acc-balance').value = '';
-  document.getElementById('delete-acc-btn').style.display = 'none';
-  buildEmojiGrid('acc-emoji-grid', ACCOUNT_EMOJIS, selectedAccEmoji);
-  openModal('modal-account');
+// ════ FIXED CRUD ════
+function openAddFixed(){
+  editFixedId=null; selFixedEmoji=EXP_EMOJIS[0]
+  document.getElementById('m-fixed-title').textContent='新增固定支出'
+  document.getElementById('f-name').value=''
+  document.getElementById('f-amt').value=''
+  document.getElementById('f-cycle').value='monthly'
+  document.getElementById('f-del').style.display='none'
+  buildEmojiGrid('f-emojis',EXP_EMOJIS,selFixedEmoji)
+  openM('m-fixed')
+}
+function openEditFixed(id){
+  const f=DB.get('fixed').find(x=>x.id===id); if(!f) return
+  editFixedId=id; selFixedEmoji=f.emoji
+  document.getElementById('m-fixed-title').textContent='編輯固定支出'
+  document.getElementById('f-name').value=f.name
+  document.getElementById('f-amt').value=f.amt
+  document.getElementById('f-cycle').value=f.cycle
+  document.getElementById('f-del').style.display='block'
+  buildEmojiGrid('f-emojis',EXP_EMOJIS,selFixedEmoji)
+  openM('m-fixed')
+}
+function saveFixed(){
+  const name=document.getElementById('f-name').value.trim()
+  const amt=parseFloat(document.getElementById('f-amt').value)||0
+  const cycle=document.getElementById('f-cycle').value
+  if(!name){document.getElementById('f-name').focus();return}
+  let list=DB.get('fixed')
+  if(editFixedId) list=list.map(f=>f.id===editFixedId?{...f,name,amt,cycle,emoji:selFixedEmoji}:f)
+  else list.push({id:Date.now()+'',name,amt,cycle,emoji:selFixedEmoji})
+  DB.set('fixed',list); closeM('m-fixed'); renderFixed(); renderHome()
+}
+function delFixed(){
+  if(!editFixedId) return
+  DB.set('fixed',DB.get('fixed').filter(f=>f.id!==editFixedId))
+  closeM('m-fixed'); renderFixed(); renderHome()
 }
 
-function openEditAccount(id) {
-  const { accounts } = getData();
-  const a = accounts.find(x => x.id === id);
-  if (!a) return;
-  editAccountId = id;
-  selectedAccEmoji = a.emoji;
-  document.getElementById('modal-account-title').textContent = '編輯帳戶';
-  document.getElementById('acc-name').value = a.name;
-  document.getElementById('acc-balance').value = a.balance;
-  document.getElementById('delete-acc-btn').style.display = 'block';
-  buildEmojiGrid('acc-emoji-grid', ACCOUNT_EMOJIS, selectedAccEmoji);
-  openModal('modal-account');
-}
-
-function saveAccount() {
-  const name = document.getElementById('acc-name').value.trim();
-  const balance = parseFloat(document.getElementById('acc-balance').value) || 0;
-  if (!name) { document.getElementById('acc-name').focus(); return; }
-
-  let { accounts } = getData();
-  if (editAccountId) {
-    accounts = accounts.map(a => a.id === editAccountId ? { ...a, name, balance, emoji: selectedAccEmoji } : a);
-  } else {
-    accounts.push({ id: Date.now().toString(), name, balance, emoji: selectedAccEmoji });
-  }
-  saveData('accounts', accounts);
-  closeModal('modal-account');
-  renderAll();
-}
-
-function deleteAccount() {
-  if (!editAccountId) return;
-  let { accounts } = getData();
-  accounts = accounts.filter(a => a.id !== editAccountId);
-  saveData('accounts', accounts);
-  closeModal('modal-account');
-  renderAll();
-}
-
-// ---- EXPENSE CRUD ----
-function openAddExpense() {
-  editExpenseId = null;
-  selectedExpEmoji = EXPENSE_EMOJIS[0];
-  document.getElementById('modal-expense-title').textContent = '新增支出項目';
-  document.getElementById('exp-name').value = '';
-  document.getElementById('exp-amount').value = '';
-  document.getElementById('exp-cycle').value = 'monthly';
-  document.getElementById('delete-exp-btn').style.display = 'none';
-  buildEmojiGrid('exp-emoji-grid', EXPENSE_EMOJIS, selectedExpEmoji);
-  openModal('modal-expense');
-}
-
-function openEditExpense(id) {
-  const { expenses } = getData();
-  const e = expenses.find(x => x.id === id);
-  if (!e) return;
-  editExpenseId = id;
-  selectedExpEmoji = e.emoji;
-  document.getElementById('modal-expense-title').textContent = '編輯支出項目';
-  document.getElementById('exp-name').value = e.name;
-  document.getElementById('exp-amount').value = e.amount;
-  document.getElementById('exp-cycle').value = e.cycle;
-  document.getElementById('delete-exp-btn').style.display = 'block';
-  buildEmojiGrid('exp-emoji-grid', EXPENSE_EMOJIS, selectedExpEmoji);
-  openModal('modal-expense');
-}
-
-function saveExpense() {
-  const name = document.getElementById('exp-name').value.trim();
-  const amount = parseFloat(document.getElementById('exp-amount').value) || 0;
-  const cycle = document.getElementById('exp-cycle').value;
-  if (!name) { document.getElementById('exp-name').focus(); return; }
-
-  let { expenses } = getData();
-  if (editExpenseId) {
-    expenses = expenses.map(e => e.id === editExpenseId ? { ...e, name, amount, cycle, emoji: selectedExpEmoji } : e);
-  } else {
-    expenses.push({ id: Date.now().toString(), name, amount, cycle, emoji: selectedExpEmoji });
-  }
-  saveData('expenses', expenses);
-  closeModal('modal-expense');
-  renderAll();
-}
-
-function deleteExpense() {
-  if (!editExpenseId) return;
-  let { expenses } = getData();
-  expenses = expenses.filter(e => e.id !== editExpenseId);
-  saveData('expenses', expenses);
-  closeModal('modal-expense');
-  renderAll();
-}
-
-// ---- INIT ----
-renderAll();
+// ════ INIT ════
+initMonth()
+renderHome()
 </script>
 </body>
 </html>
